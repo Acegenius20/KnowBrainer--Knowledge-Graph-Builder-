@@ -92,7 +92,7 @@ Track how your knowledge graph evolves over time.
 
 ---
 
-## Tech Stack (MERN)
+## Tech Stack 
 
 **Frontend**
 
@@ -115,7 +115,7 @@ Track how your knowledge graph evolves over time.
 
 ---
 
-## How it works (high level)
+## Workflow
 
 1. User uploads notes or enters text
 2. Backend processes the content
@@ -126,32 +126,14 @@ Track how your knowledge graph evolves over time.
 
 ---
 
-## Challenges tackled
+## Challenges 
 
 * Extracting meaningful concepts from unstructured text
 * Avoiding noisy or irrelevant connections
 * Designing a graph UI that is both powerful and intuitive
 * Scaling the graph as data grows
 
----
 
-## Future Improvements
-
-* AI-powered summarization of concepts
-* Personalized learning recommendations
-* Integration with tools like Notion / Google Docs
-* Offline knowledge graph support
-* Collaboration (shared knowledge graphs)
-
----
-
-## Inspiration
-
-The idea comes from how humans naturally think — not in lists, but in **connected ideas**. This project tries to replicate that structure digitally.
-
----
-
-## Final Thoughts
 
 This is not just a note-taking app.
 It’s a system that helps you **see what you know** — and more importantly, **how everything you know is connected**.
