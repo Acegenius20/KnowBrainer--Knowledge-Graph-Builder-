@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { deleteConcept, getConcepts } from "../services/api";
+import { ConfirmModal } from "./ConfirmModal";
+import { showToast } from "./Toast";
 
 function ConceptList({ refreshKey, onDeleted }) {
   const listRef = useRef(null);
@@ -8,6 +10,8 @@ function ConceptList({ refreshKey, onDeleted }) {
   const [error, setError] = useState("");
   const [activeId, setActiveId] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [conceptToDelete, setConceptToDelete] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -23,6 +27,7 @@ function ConceptList({ refreshKey, onDeleted }) {
       } catch (err) {
         if (isMounted) {
           setError("Failed to load concepts.");
+          showToast("Failed to load concepts", "error");
         }
       } finally {
         if (isMounted) {
@@ -38,19 +43,36 @@ function ConceptList({ refreshKey, onDeleted }) {
     };
   }, [refreshKey]);
 
-  useEffect(() => {
-    const handleOutsideClick = (event) => {
-      if (!listRef.current) return;
-      if (!listRef.current.contains(event.target)) {
-        setActiveId(null);
-      }
-    };
+  const handleDeleteClick = (conceptId, event) => {
+    event.stopPropagation();
+    const concept = concepts.find((c) => c._id === conceptId);
+    setConceptToDelete(concept);
+    setConfirmOpen(true);
+  };
 
-    document.addEventListener("mousedown", handleOutsideClick);
-    return () => {
-      document.removeEventListener("mousedown", handleOutsideClick);
-    };
-  }, []);
+  const handleConfirmDelete = async () => {
+    if (!conceptToDelete) return;
+
+    try {
+      setIsDeleting(true);
+      await deleteConcept(conceptToDelete._id);
+      setActiveId(null);
+      setConfirmOpen(false);
+      showToast(`"${conceptToDelete.title}" deleted successfully`, "success");
+      onDeleted();
+    } catch (err) {
+      setError("Failed to delete concept.");
+      showToast("Failed to delete concept", "error");
+    } finally {
+      setIsDeleting(false);
+      setConceptToDelete(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setConfirmOpen(false);
+    setConceptToDelete(null);
+  };
 
   if (isLoading) {
     return <p className="status">Loading concepts...</p>;
@@ -63,22 +85,6 @@ function ConceptList({ refreshKey, onDeleted }) {
   if (!concepts.length) {
     return <p className="status empty">No concepts yet.</p>;
   }
-
-  const handleDelete = async (conceptId) => {
-    const confirmed = window.confirm("Delete this concept?");
-    if (!confirmed) return;
-
-    try {
-      setIsDeleting(true);
-      await deleteConcept(conceptId);
-      setActiveId(null);
-      onDeleted();
-    } catch (err) {
-      setError("Failed to delete concept.");
-    } finally {
-      setIsDeleting(false);
-    }
-  };
 
   return (
     <div>
@@ -96,11 +102,9 @@ function ConceptList({ refreshKey, onDeleted }) {
                 <button
                   className="concept-delete"
                   type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleDelete(concept._id);
-                  }}
+                  onClick={(event) => handleDeleteClick(concept._id, event)}
                   disabled={isDeleting}
+                  title="Delete this concept permanently"
                 >
                   {isDeleting ? "Deleting..." : "Delete"}
                 </button>
@@ -110,6 +114,18 @@ function ConceptList({ refreshKey, onDeleted }) {
           </li>
         ))}
       </ul>
+
+      <ConfirmModal
+        title="Delete Concept?"
+        message={
+          conceptToDelete
+            ? `Are you sure you want to delete "${conceptToDelete.title}"? This action cannot be undone.`
+            : ""
+        }
+        isOpen={confirmOpen}
+        onConfirm={handleConfirmDelete}
+        onCancel={handleCancelDelete}
+      />
     </div>
   );
 }

@@ -2,8 +2,11 @@ import { useEffect, useState } from "react";
 import ConceptForm from "./components/ConceptForm";
 import ConceptList from "./components/ConceptList";
 import WorkflowGraph from "./components/ui/WorkflowGraph";
+import { ToastContainer } from "./components/Toast";
 import { getConcepts, getRelations } from "./services/api";
 import "./App.css";
+import "./phase4-enhancements.css";
+import { Phase4Summary } from "./components/Phase4Summary";
 
 function App() {
   const [refreshKey, setRefreshKey] = useState(0);
@@ -76,8 +79,10 @@ function App() {
   const currentCopy = sidebarCopy[activeView] || sidebarCopy.library;
 
   return (
-    <div className="app">
-      <div className="app-shell">
+    <>
+      <ToastContainer />
+      <div className="app">
+        <div className="app-shell">
         <aside className="sidebar">
           <div className="sidebar-brand">
             <span className="brand-mark">KB</span>
@@ -190,11 +195,13 @@ function App() {
                 onAddNode={() => setActiveView("library")}
                 refreshKey={refreshKey}
               />
+              <Phase4Summary />
             </section>
           )}
         </div>
       </div>
     </div>
+    </>
   );
 }
 
