@@ -1,121 +1,201 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect, useState } from "react";
+import ConceptForm from "./components/ConceptForm";
+import ConceptList from "./components/ConceptList";
+import WorkflowGraph from "./components/ui/WorkflowGraph";
+import { getConcepts, getRelations } from "./services/api";
+import "./App.css";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [theme, setTheme] = useState(() =>
+    localStorage.getItem("kb-theme") || "dark"
+  );
+  const [activeView, setActiveView] = useState("library");
+  const [summary, setSummary] = useState({ total: 0, latest: "", relations: 0 });
+  const [summaryLoading, setSummaryLoading] = useState(true);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("kb-theme", theme);
+  }, [theme]);
+
+  useEffect(() => {
+    const loadSummary = async () => {
+      try {
+        setSummaryLoading(true);
+        const [concepts, relations] = await Promise.all([
+          getConcepts(),
+          getRelations(),
+        ]);
+
+        const latest = concepts[0]?.createdAt
+          ? new Intl.DateTimeFormat("en", {
+              month: "short",
+              day: "numeric",
+            }).format(new Date(concepts[0].createdAt))
+          : "No activity";
+
+        setSummary({
+          total: concepts.length,
+          latest,
+          relations: relations.length,
+        });
+      } catch (err) {
+        setSummary({ total: 0, latest: "Unavailable", relations: 0 });
+      } finally {
+        setSummaryLoading(false);
+      }
+    };
+
+    loadSummary();
+  }, [refreshKey]);
+
+  const handleCreated = () => {
+    setRefreshKey((value) => value + 1);
+  };
+
+  const handleDeleted = () => {
+    setRefreshKey((value) => value + 1);
+  };
+
+  const toggleTheme = () => {
+    setTheme((current) => (current === "dark" ? "light" : "dark"));
+  };
+
+  const sidebarCopy = {
+    library: {
+      title: "Concept Library",
+      description: "Capture concepts, edit details, and build the graph foundation.",
+    },
+    graph: {
+      title: "Graph View",
+      description: "Pan, zoom, and inspect relationships across your knowledge system.",
+    },
+  };
+
+  const currentCopy = sidebarCopy[activeView] || sidebarCopy.library;
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="app">
+      <div className="app-shell">
+        <aside className="sidebar">
+          <div className="sidebar-brand">
+            <span className="brand-mark">KB</span>
+            <div>
+              <p className="app-kicker">KnowBrainer</p>
+              <p className="brand-subtitle">Personal Knowledge Graph</p>
+            </div>
+          </div>
+          <nav className="sidebar-nav">
+            <button
+              type="button"
+              className={`nav-item ${activeView === "library" ? "is-active" : ""}`}
+              onClick={() => setActiveView("library")}
+            >
+              Library
+            </button>
+            <button
+              type="button"
+              className={`nav-item ${activeView === "graph" ? "is-active" : ""}`}
+              onClick={() => setActiveView("graph")}
+            >
+              Graph
+            </button>
+            <button type="button" className="nav-item" disabled>
+              Relationships
+            </button>
+            <button type="button" className="nav-item" disabled>
+              Insights
+            </button>
+            <button type="button" className="nav-item" disabled>
+              Settings
+            </button>
+          </nav>
+          <div className="sidebar-card">
+            <h3>{currentCopy.title}</h3>
+            <p>{currentCopy.description}</p>
+          </div>
+        </aside>
 
-      <div className="ticks"></div>
+        <div className="main-area">
+          <header className="topbar">
+            <div>
+              <h1>{activeView === "graph" ? "Knowledge Graph" : "Concept Library"}</h1>
+              <p className="app-subtitle">
+                {activeView === "graph"
+                  ? "Drag nodes, zoom, and explore relationships."
+                  : "Curate the building blocks of your knowledge graph."}
+              </p>
+            </div>
+            <button
+              className="theme-toggle"
+              onClick={toggleTheme}
+              type="button"
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {theme === "dark" ? (
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M21 15.5a8.25 8.25 0 0 1-10.98-10.98 9 9 0 1 0 10.98 10.98Z"
+                    fill="currentColor"
+                  />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M12 3.25a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0V4a.75.75 0 0 1 .75-.75ZM5.61 5.61a.75.75 0 0 1 1.06 0l1.06 1.06a.75.75 0 1 1-1.06 1.06L5.61 6.67a.75.75 0 0 1 0-1.06Zm12.72 0a.75.75 0 0 1 0 1.06l-1.06 1.06a.75.75 0 0 1-1.06-1.06l1.06-1.06a.75.75 0 0 1 1.06 0ZM12 7.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Zm8.5 3.75a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0V12a.75.75 0 0 1 .75-.75ZM3.25 12a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5H4a.75.75 0 0 1-.75-.75Zm14.86 5.33a.75.75 0 0 1 1.06 0l1.06 1.06a.75.75 0 1 1-1.06 1.06l-1.06-1.06a.75.75 0 0 1 0-1.06Zm-12.72 0a.75.75 0 0 1 1.06 1.06L5.39 19.5a.75.75 0 1 1-1.06-1.06l1.06-1.11ZM12 18.75a.75.75 0 0 1 .75.75V21a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75Z"
+                    fill="currentColor"
+                  />
+                </svg>
+              )}
+            </button>
+          </header>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+          {activeView === "library" ? (
+            <>
+              <section className="cards-grid">
+                <div className="stat-card">
+                  <p>Total Concepts</p>
+                  <h2>{summaryLoading ? "Loading" : summary.total}</h2>
+                  <span>Keep adding ideas</span>
+                </div>
+                <div className="stat-card">
+                  <p>Latest Activity</p>
+                  <h2>{summaryLoading ? "Loading" : summary.latest}</h2>
+                  <span>Fresh concepts added</span>
+                </div>
+                <div className="stat-card">
+                  <p>Relationships</p>
+                  <h2>{summaryLoading ? "Loading" : summary.relations}</h2>
+                  <span>Connected links</span>
+                </div>
+              </section>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+              <main className="app-content">
+                <section className="panel">
+                  <ConceptForm onCreated={handleCreated} />
+                </section>
+                <section className="panel">
+                  <div className="panel-header">
+                    <h2>Recent Concepts</h2>
+                    <p>Sorted by newest first.</p>
+                  </div>
+                  <ConceptList refreshKey={refreshKey} onDeleted={handleDeleted} />
+                </section>
+              </main>
+            </>
+          ) : (
+            <section className="graph-page">
+              <WorkflowGraph
+                onAddNode={() => setActiveView("library")}
+                refreshKey={refreshKey}
+              />
+            </section>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
-export default App
+export default App;

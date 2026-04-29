@@ -1,111 +1,124 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&display=swap");
+
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
-
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
-
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
+  font-family: "DM Sans", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
+  --app-bg: radial-gradient(circle at top left, rgba(255, 248, 236, 0.9) 0%, rgba(236, 241, 249, 0.8) 40%, rgba(243, 244, 247, 1) 100%);
+  --surface: #ffffff;
+  --surface-soft: rgba(255, 255, 255, 0.9);
+  --surface-muted: #f4f3f1;
+  --border: #e1ddd6;
+  --border-strong: #c7c2b8;
+  --text-primary: #151517;
+  --text-secondary: #5f5a52;
+  --text-muted: #7b756b;
+  --accent: #2f6f6a;
+  --accent-soft: rgba(47, 111, 106, 0.16);
+  --accent-secondary: #d97745;
+  --accent-secondary-soft: rgba(217, 119, 69, 0.18);
+  --accent-tertiary: #3d6fd1;
+  --accent-tertiary-soft: rgba(61, 111, 209, 0.16);
+  --sidebar-bg: rgba(250, 249, 246, 0.9);
+  --graph-bg: radial-gradient(circle at top left, rgba(17, 24, 39, 0.06), rgba(255, 255, 255, 0.9));
+  --workflow-bg: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(245, 247, 250, 0.98));
+  --workflow-panel: rgba(255, 255, 255, 0.8);
+  --workflow-card: linear-gradient(160deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+  --workflow-canvas: radial-gradient(circle at top, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.95));
+  --workflow-grid: rgba(148, 163, 184, 0.18);
+  --workflow-text: #0f172a;
+  --workflow-muted: rgba(71, 85, 105, 0.75);
+  --workflow-border: rgba(148, 163, 184, 0.35);
+  --workflow-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+  --workflow-node-shadow: 0 10px 18px rgba(15, 23, 42, 0.18);
+  --workflow-node-shadow-hover: 0 16px 28px rgba(15, 23, 42, 0.2);
+  --workflow-node-shadow-selected: 0 18px 30px rgba(37, 99, 235, 0.3);
+  --workflow-edge: rgba(59, 130, 246, 0.5);
+  --workflow-edge-active: rgba(20, 184, 166, 0.9);
+  --node-trigger-bg: linear-gradient(150deg, rgba(16, 185, 129, 0.18), rgba(255, 255, 255, 0.95));
+  --node-trigger-border: rgba(16, 185, 129, 0.55);
+  --node-trigger-icon: #0f766e;
+  --node-concept-bg: linear-gradient(150deg, rgba(59, 130, 246, 0.18), rgba(255, 255, 255, 0.95));
+  --node-concept-border: rgba(59, 130, 246, 0.55);
+  --node-concept-icon: #1d4ed8;
+  --node-relation-bg: linear-gradient(150deg, rgba(245, 158, 11, 0.18), rgba(255, 255, 255, 0.95));
+  --node-relation-border: rgba(245, 158, 11, 0.5);
+  --node-relation-icon: #b45309;
+  --node-insight-bg: linear-gradient(150deg, rgba(168, 85, 247, 0.18), rgba(255, 255, 255, 0.95));
+  --node-insight-border: rgba(168, 85, 247, 0.55);
+  --node-insight-icon: #7c3aed;
+  color: var(--text-primary);
+  background: #f4f1ec;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+:root[data-theme="dark"] {
+  --app-bg: radial-gradient(circle at top left, rgba(40, 45, 58, 0.95) 0%, rgba(20, 24, 32, 1) 70%);
+  --surface: #1c1f26;
+  --surface-soft: rgba(28, 31, 38, 0.9);
+  --surface-muted: #232833;
+  --border: #2f3440;
+  --border-strong: #3b4250;
+  --text-primary: #f5f6f8;
+  --text-secondary: #c1c6d1;
+  --text-muted: #9aa1ad;
+  --accent: #62b9b1;
+  --accent-soft: rgba(98, 185, 177, 0.2);
+  --accent-secondary: #f3a36d;
+  --accent-secondary-soft: rgba(243, 163, 109, 0.2);
+  --accent-tertiary: #88a8f5;
+  --accent-tertiary-soft: rgba(136, 168, 245, 0.2);
+  --sidebar-bg: rgba(22, 26, 34, 0.95);
+  --graph-bg: radial-gradient(circle at top left, rgba(12, 15, 20, 0.9), rgba(20, 24, 32, 0.95));
+  --workflow-bg: linear-gradient(160deg, rgba(15, 23, 42, 0.86), rgba(30, 41, 59, 0.92));
+  --workflow-panel: rgba(15, 23, 42, 0.55);
+  --workflow-card: linear-gradient(160deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.92));
+  --workflow-canvas: radial-gradient(circle at top, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.95));
+  --workflow-grid: rgba(148, 163, 184, 0.12);
+  --workflow-text: #f8fafc;
+  --workflow-muted: rgba(148, 163, 184, 0.8);
+  --workflow-border: rgba(148, 163, 184, 0.2);
+  --workflow-shadow: 0 30px 80px rgba(15, 23, 42, 0.45);
+  --workflow-node-shadow: 0 12px 22px rgba(15, 23, 42, 0.4);
+  --workflow-node-shadow-hover: 0 18px 36px rgba(15, 23, 42, 0.45);
+  --workflow-node-shadow-selected: 0 16px 30px rgba(59, 130, 246, 0.32);
+  --workflow-edge: rgba(129, 140, 248, 0.55);
+  --workflow-edge-active: rgba(94, 234, 212, 0.9);
+  --node-trigger-bg: linear-gradient(150deg, rgba(16, 185, 129, 0.2), rgba(15, 23, 42, 0.9));
+  --node-trigger-border: rgba(16, 185, 129, 0.55);
+  --node-trigger-icon: #a7f3d0;
+  --node-concept-bg: linear-gradient(150deg, rgba(59, 130, 246, 0.2), rgba(15, 23, 42, 0.92));
+  --node-concept-border: rgba(59, 130, 246, 0.6);
+  --node-concept-icon: #bfdbfe;
+  --node-relation-bg: linear-gradient(150deg, rgba(245, 158, 11, 0.2), rgba(15, 23, 42, 0.9));
+  --node-relation-border: rgba(245, 158, 11, 0.55);
+  --node-relation-icon: #fde68a;
+  --node-insight-bg: linear-gradient(150deg, rgba(168, 85, 247, 0.2), rgba(15, 23, 42, 0.9));
+  --node-insight-border: rgba(168, 85, 247, 0.6);
+  --node-insight-icon: #e9d5ff;
+  color: var(--text-primary);
+  background: #121419;
+}
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
   margin: 0;
-}
-
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
+  min-height: 100vh;
+  background: var(--app-bg);
 }
 
 h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
+h2,
+h3 {
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 600;
 }
 
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
-}
-p {
-  margin: 0;
-}
-
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
-
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+#root {
+  width: 100%;
+  min-height: 100vh;
 }
