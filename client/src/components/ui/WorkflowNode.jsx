@@ -12,12 +12,11 @@ const iconMap = {
 function WorkflowNode({
   node,
   selected,
+  matched,
+  connected,
   dimmed,
   onSelect,
-  onDragStart,
-  onDrag,
-  onDragEnd,
-  dragConstraints,
+  onPointerDown,
   nodeSize,
   onSizeChange,
 }) {
@@ -39,29 +38,23 @@ function WorkflowNode({
     <motion.div
       className={`workflow-node node-${node.type} ${selected ? "is-selected" : ""} ${
         isDragging ? "is-dragging" : ""
-      } ${dimmed ? "is-dimmed" : ""}`}
-      drag
-      dragMomentum={false}
-      dragElastic={0.04}
-      dragConstraints={dragConstraints}
-      onDragStart={(event, info) => {
+      } ${dimmed ? "is-dimmed" : ""} ${matched ? "is-matched" : ""} ${
+        connected ? "is-connected" : ""
+      }`}
+      onPointerDown={(event) => {
         setIsDragging(true);
-        onDragStart(event, info);
+        onPointerDown?.(event);
       }}
-      onDrag={(_, info) => onDrag(info)}
-      onDragEnd={(event, info) => {
-        setIsDragging(false);
-        onDragEnd(event, info);
-      }}
+      onPointerUp={() => setIsDragging(false)}
+      onPointerCancel={() => setIsDragging(false)}
       onClick={onSelect}
       style={{
         width: nodeSize.width,
-        x: node.position.x,
-        y: node.position.y,
+        left: node.position.x,
+        top: node.position.y,
       }}
       whileHover={{ scale: 1.03 }}
       whileTap={{ scale: 0.98 }}
-      whileDrag={{ scale: 1.05 }}
     >
       <div className="node-card" ref={cardRef}>
         <div className="node-header">

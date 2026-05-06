@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createConcept } from "../services/api";
 
 function ConceptForm({ onCreated }) {
@@ -11,8 +11,15 @@ function ConceptForm({ onCreated }) {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!title.trim()) {
-      setError("Title is required.");
+    const trimmedDescription = description.trim();
+    const trimmedTitle = title.trim();
+    const fallbackTitle = trimmedDescription
+      ? trimmedDescription.split(/\s+/).slice(0, 5).join(" ")
+      : "Untitled Concept";
+    const finalTitle = trimmedTitle || fallbackTitle;
+
+    if (!trimmedDescription && !trimmedTitle) {
+      setError("Write a thought or add a title to capture knowledge.");
       setSuccess("");
       return;
     }
@@ -22,12 +29,12 @@ function ConceptForm({ onCreated }) {
       setError("");
       setSuccess("");
       await createConcept({
-        title: title.trim(),
-        description: description.trim(),
+        title: finalTitle,
+        description: trimmedDescription,
       });
       setTitle("");
       setDescription("");
-      setSuccess("Concept saved.");
+      setSuccess("Knowledge captured.");
       onCreated();
     } catch (err) {
       const message = err?.response?.data?.message || "Failed to create concept.";
@@ -38,15 +45,75 @@ function ConceptForm({ onCreated }) {
     }
   };
 
+  const keywordPreview = useMemo(() => {
+    const text = `${title} ${description}`.toLowerCase();
+    const tokens = text
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter(Boolean);
+
+    const stop = new Set([
+      "the",
+      "and",
+      "that",
+      "this",
+      "from",
+      "with",
+      "are",
+      "was",
+      "been",
+      "have",
+      "has",
+      "for",
+      "to",
+      "in",
+      "on",
+      "at",
+      "by",
+      "or",
+      "is",
+      "it",
+      "be",
+      "a",
+      "an",
+      "as",
+      "but",
+      "not",
+      "if",
+      "so",
+      "we",
+      "you",
+      "he",
+      "she",
+      "they",
+      "them",
+      "our",
+      "your",
+      "their",
+    ]);
+
+    const counts = new Map();
+    tokens.forEach((token) => {
+      if (stop.has(token) || token.length < 3) return;
+      counts.set(token, (counts.get(token) || 0) + 1);
+    });
+
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([token]) => token.replace(/\b\w/g, (c) => c.toUpperCase()));
+  }, [title, description]);
+
   return (
-    <form className="concept-form" onSubmit={handleSubmit}>
-      <div className="form-header">
-        <h2>Add Concept</h2>
-        <p>Capture a new idea and keep your knowledge graph growing.</p>
+    <form className="library-capture-form" onSubmit={handleSubmit}>
+      <div className="library-capture-header">
+        <p className="library-kicker">Thinking Space</p>
+        <h2>Capture Your Knowledge</h2>
+        <p>Write freely. Your ideas will connect automatically.</p>
       </div>
 
-      <label className="field">
-        <span>Title</span>
+      <label className="library-field">
+        <span>Optional Title</span>
         <input
           value={title}
           onChange={(event) => {
@@ -55,13 +122,12 @@ function ConceptForm({ onCreated }) {
               setSuccess("");
             }
           }}
-          placeholder="e.g. Vector Databases"
-          required
+          placeholder="Optional title (auto-generated if empty)"
         />
       </label>
 
-      <label className="field">
-        <span>Description</span>
+      <label className="library-field">
+        <span>Your Thought</span>
         <textarea
           value={description}
           onChange={(event) => {
@@ -70,16 +136,28 @@ function ConceptForm({ onCreated }) {
               setSuccess("");
             }
           }}
-          placeholder="Why it matters, how it connects, or what you learned."
-          rows={4}
+          placeholder="Write your thoughts... your ideas will turn into a knowledge graph"
+          rows={8}
         />
       </label>
+
+      {keywordPreview.length > 0 ? (
+        <div className="keyword-preview">
+          {keywordPreview.map((word) => (
+            <span key={word} className="keyword-chip">
+              {word}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="keyword-empty">Start typing to see concept previews.</p>
+      )}
 
       {error ? <p className="status error">{error}</p> : null}
       {success ? <p className="status success">{success}</p> : null}
 
       <button type="submit" disabled={isSubmitting}>
-        {isSubmitting ? "Saving..." : "Save Concept"}
+        {isSubmitting ? "Capturing..." : "Capture Knowledge"}
       </button>
     </form>
   );

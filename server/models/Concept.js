@@ -6,7 +6,14 @@ const conceptSchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
+      lowercase: true,
       unique: true,
+      index: true,
+    },
+    displayTitle: {
+      type: String,
+      default: "",
+      trim: true,
     },
     description: {
       type: String,

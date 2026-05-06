@@ -4,6 +4,16 @@ const Relation = require("../models/Relation");
 
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+const serializeConcept = (concept) => {
+  if (!concept) return concept;
+
+  const plainConcept = concept.toObject ? concept.toObject() : { ...concept };
+  return {
+    ...plainConcept,
+    title: plainConcept.displayTitle || plainConcept.title,
+  };
+};
+
 const createConcept = async (req, res) => {
   try {
     const { title, description, tags } = req.body;
@@ -12,14 +22,15 @@ const createConcept = async (req, res) => {
       return res.status(400).json({ message: "Title is required." });
     }
 
-    const normalizedTitle = title.trim();
+    const displayTitle = title.trim();
+    const normalizedTitle = displayTitle.toLowerCase();
 
     if (!normalizedTitle) {
       return res.status(400).json({ message: "Title is required." });
     }
 
     const existing = await Concept.findOne({
-      title: new RegExp(`^${escapeRegExp(normalizedTitle)}$`, "i"),
+      title: normalizedTitle,
     });
 
     if (existing) {
@@ -37,11 +48,12 @@ const createConcept = async (req, res) => {
 
     const concept = await Concept.create({
       title: normalizedTitle,
+      displayTitle,
       description: normalizedDescription,
       tags: normalizedTags,
     });
 
-    return res.status(201).json(concept);
+    return res.status(201).json(serializeConcept(concept));
   } catch (error) {
     if (error.code === 11000) {
       return res.status(409).json({ message: "Concept already exists." });
@@ -54,7 +66,7 @@ const createConcept = async (req, res) => {
 const getConcepts = async (_req, res) => {
   try {
     const concepts = await Concept.find().sort({ createdAt: -1 });
-    return res.json(concepts);
+    return res.json(concepts.map(serializeConcept));
   } catch (error) {
     return res.status(500).json({ message: "Failed to fetch concepts." });
   }
@@ -74,7 +86,7 @@ const getConceptById = async (req, res) => {
       return res.status(404).json({ message: "Concept not found." });
     }
 
-    return res.json(concept);
+    return res.json(serializeConcept(concept));
   } catch (error) {
     return res.status(500).json({ message: "Failed to fetch concept." });
   }

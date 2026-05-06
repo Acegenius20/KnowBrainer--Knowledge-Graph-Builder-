@@ -58,7 +58,23 @@ const getRelations = async (_req, res) => {
   }
 };
 
+const deleteRelation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ message: "Relation id is required." });
+
+    const existing = await Relation.findById(id);
+    if (!existing) return res.status(404).json({ message: "Relation not found." });
+
+    await Relation.deleteOne({ _id: id });
+    return res.json({ message: "Relation deleted." });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to delete relation." });
+  }
+};
+
 module.exports = {
   createRelation,
   getRelations,
+  deleteRelation,
 };

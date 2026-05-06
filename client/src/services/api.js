@@ -24,4 +24,14 @@ export const getRelations = async () => {
   return response.data || [];
 };
 
+export const deleteRelation = async (id) => {
+  const response = await api.delete(`/relations/${id}`);
+  return response.data;
+};
+
+export const extractKnowledge = async (text) => {
+  const response = await api.post("/extract", { text });
+  return response.data;
+};
+
 export default api;

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
+import { BookOpen } from "lucide-react";
 import { deleteConcept, getConcepts } from "../services/api";
 import { ConfirmModal } from "./ConfirmModal";
 import { showToast } from "./Toast";
@@ -89,15 +91,19 @@ function ConceptList({ refreshKey, onDeleted }) {
   return (
     <div>
       {error ? <p className="status error">{error}</p> : null}
-      <ul className="concept-list" ref={listRef}>
+      <ul className="concept-grid" ref={listRef}>
         {concepts.map((concept) => (
-          <li
+          <motion.li
             key={concept._id}
             className={`concept-card ${activeId === concept._id ? "is-active" : ""}`}
             onClick={() => setActiveId(activeId === concept._id ? null : concept._id)}
+            whileHover={{ y: -4, scale: 1.01 }}
+            transition={{ type: "spring", stiffness: 260, damping: 18 }}
           >
             <div className="concept-card-header">
-              <h3>{concept.title}</h3>
+              <div className="concept-icon">
+                <BookOpen size={16} />
+              </div>
               {activeId === concept._id ? (
                 <button
                   className="concept-delete"
@@ -110,8 +116,13 @@ function ConceptList({ refreshKey, onDeleted }) {
                 </button>
               ) : null}
             </div>
-            {concept.description ? <p>{concept.description}</p> : null}
-          </li>
+            <h3>{concept.displayTitle || concept.title}</h3>
+            {concept.description ? (
+              <p>{concept.description}</p>
+            ) : (
+              <p className="concept-placeholder">No description yet.</p>
+            )}
+          </motion.li>
         ))}
       </ul>
 

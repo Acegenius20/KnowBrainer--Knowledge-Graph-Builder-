@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import WorkflowNode from "./WorkflowNode";
 import WorkflowConnection from "./WorkflowConnection";
-import { getConcepts, getRelations } from "../../services/api";
+import { getConcepts, getRelations, createConcept } from "../../services/api";
+import ConceptDetailPanel from "../ConceptDetailPanel";
+import { getHighlightedNodes } from "../../utils/search";
 
 const NODE_SIZE = { width: 220, height: 140 };
 const nodeTypes = {
@@ -123,58 +125,134 @@ const deriveNodeType = (concept, index) => {
 
 function WorkflowGraph({ onAddNode, refreshKey }) {
   const canvasRef = useRef(null);
-  const dragOriginRef = useRef({});
+  const nodeDragRef = useRef({
+    active: false,
+    nodeId: null,
+    pointerId: null,
+    startX: 0,
+    startY: 0,
+    originX: 0,
+    originY: 0,
+  });
   const panState = useRef({ active: false, startX: 0, startY: 0, originX: 0, originY: 0 });
   const viewportRef = useRef({ x: 0, y: 0, scale: 1 });
   const [nodes, setNodes] = useState([]);
   const [connections, setConnections] = useState([]);
+  const [conceptsData, setConceptsData] = useState([]);
+  const [relationsData, setRelationsData] = useState([]);
   const [selectedNode, setSelectedNode] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [viewport, setViewport] = useState({ x: 0, y: 0, scale: 1 });
   const [nodeSizes, setNodeSizes] = useState({});
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showRelations, setShowRelations] = useState(true);
+  const [createError, setCreateError] = useState("");
+
+  // Fetch graph data (concepts + relations). Extracted so it can be re-used after creating a concept.
+  const fetchGraph = async () => {
+    try {
+      setIsLoading(true);
+      const [concepts, relations] = await Promise.all([
+        getConcepts(),
+        getRelations(),
+      ]);
+
+      const conceptIds = new Set(concepts.map((concept) => concept._id));
+      const dedupedRelations = [];
+      const seenRelations = new Set();
+
+      relations.forEach((relation) => {
+        const sourceId = relation.source?._id || relation.source;
+        const targetId = relation.target?._id || relation.target;
+        const type = relation.type || "related_to";
+
+        if (!conceptIds.has(sourceId) || !conceptIds.has(targetId)) return;
+
+        const key = `${sourceId}-${targetId}-${type}`;
+        if (seenRelations.has(key)) return;
+        seenRelations.add(key);
+        dedupedRelations.push({ ...relation, source: sourceId, target: targetId, type });
+      });
+
+      const conceptNodes = concepts.map((concept, index) => ({
+        id: concept._id,
+        title: concept.displayTitle || concept.title,
+        description: concept.description || "No description yet.",
+        type: deriveNodeType(concept, index),
+      }));
+
+      const edges = dedupedRelations.map((relation, index) => {
+        return {
+          id: `${relation.source}-${relation.target}-${relation.type}-${index}`,
+          from: relation.source,
+          to: relation.target,
+          type: relation.type,
+        };
+      });
+
+      const positionedConcepts = layoutGraphNodes(conceptNodes, edges);
+
+      setNodes(positionedConcepts);
+      setConnections(edges);
+      setConceptsData(concepts);
+      setRelationsData(dedupedRelations);
+      setError("");
+      setViewport({ x: 0, y: 0, scale: 1 });
+    } catch (err) {
+      console.error("Failed to load workflow graph", err);
+      setError("Failed to load graph data.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchGraph = async () => {
-      try {
-        setIsLoading(true);
-        const [concepts, relations] = await Promise.all([
-          getConcepts(),
-          getRelations(),
-        ]);
-
-        const conceptNodes = concepts.map((concept, index) => ({
-          id: concept._id,
-          title: concept.title,
-          description: concept.description || "No description yet.",
-          type: deriveNodeType(concept, index),
-        }));
-
-        const edges = relations.map((relation, index) => {
-          const sourceId = relation.source?._id || relation.source;
-          const targetId = relation.target?._id || relation.target;
-          return { id: `${sourceId}-${targetId}-${index}`, from: sourceId, to: targetId };
-        });
-
-        const positionedConcepts = layoutGraphNodes(conceptNodes, edges);
-
-        setNodes(positionedConcepts);
-        setConnections(edges);
-        setError("");
-        setViewport({ x: 0, y: 0, scale: 1 });
-      } catch (err) {
-        console.error("Failed to load workflow graph", err);
-        setError("Failed to load graph data.");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchGraph();
   }, [refreshKey]);
 
+  // Local state for inline add-node form (adds to library and refreshes graph)
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setSearchQuery(searchInput.trim());
+    }, 200);
+    return () => clearTimeout(timeout);
+  }, [searchInput]);
+
   useEffect(() => {
     const handleMove = (event) => {
+      const drag = nodeDragRef.current;
+      if (drag.active) {
+        if (drag.pointerId !== null && event.pointerId !== drag.pointerId) {
+          return;
+        }
+
+        const scale = viewportRef.current.scale || 1;
+        const dx = (event.clientX - drag.startX) / scale;
+        const dy = (event.clientY - drag.startY) / scale;
+
+        setNodes((prev) =>
+          prev.map((node) =>
+            node.id === drag.nodeId
+              ? {
+                  ...node,
+                  position: {
+                    x: drag.originX + dx,
+                    y: drag.originY + dy,
+                  },
+                }
+              : node
+          )
+        );
+        return;
+      }
+
       if (!panState.current.active) return;
       const dx = event.clientX - panState.current.startX;
       const dy = event.clientY - panState.current.startY;
@@ -185,16 +263,25 @@ function WorkflowGraph({ onAddNode, refreshKey }) {
       }));
     };
 
-    const handleUp = () => {
+    const handleUp = (event) => {
+      if (nodeDragRef.current.active) {
+        if (nodeDragRef.current.pointerId === null || event.pointerId === nodeDragRef.current.pointerId) {
+          nodeDragRef.current.active = false;
+          nodeDragRef.current.nodeId = null;
+          nodeDragRef.current.pointerId = null;
+        }
+      }
       panState.current.active = false;
     };
 
-    window.addEventListener("mousemove", handleMove);
-    window.addEventListener("mouseup", handleUp);
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleUp);
+    window.addEventListener("pointercancel", handleUp);
 
     return () => {
-      window.removeEventListener("mousemove", handleMove);
-      window.removeEventListener("mouseup", handleUp);
+      window.removeEventListener("pointermove", handleMove);
+      window.removeEventListener("pointerup", handleUp);
+      window.removeEventListener("pointercancel", handleUp);
     };
   }, []);
 
@@ -206,53 +293,34 @@ function WorkflowGraph({ onAddNode, refreshKey }) {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    let rafId = null;
-    let pending = null;
-
-    const applyZoom = () => {
-      if (!pending) return;
-      const { pointerX, pointerY, delta } = pending;
-      const { x, y, scale } = viewportRef.current;
-      const zoomFactor = Math.exp(-delta * 0.0025);
-      const nextScale = clamp(scale * zoomFactor, 0.45, 2.4);
-      const contentX = (pointerX - x) / scale;
-      const contentY = (pointerY - y) / scale;
-      const nextX = pointerX - contentX * nextScale;
-      const nextY = pointerY - contentY * nextScale;
-      setViewport({ x: nextX, y: nextY, scale: nextScale });
-      pending = null;
-      rafId = null;
-    };
-
-    const onWheel = (event) => {
+    const handleWheel = (event) => {
+      if (!event.target.closest(".workflow-canvas")) return;
       event.preventDefault();
+      event.stopPropagation();
+
       const rect = canvas.getBoundingClientRect();
       const pointerX = event.clientX - rect.left;
       const pointerY = event.clientY - rect.top;
-      if (pending) {
-        pending = {
-          pointerX,
-          pointerY,
-          delta: pending.delta + event.deltaY,
+
+      const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? rect.height : 1);
+      const zoomSensitivity = 0.0095;
+      const zoomFactor = Math.exp(-delta * zoomSensitivity);
+
+      setViewport((prev) => {
+        const nextScale = clamp(prev.scale * zoomFactor, 0.45, 2.4);
+        const scaleDiff = nextScale / prev.scale;
+
+        return {
+          x: pointerX - (pointerX - prev.x) * scaleDiff,
+          y: pointerY - (pointerY - prev.y) * scaleDiff,
+          scale: nextScale,
         };
-      } else {
-        pending = {
-          pointerX,
-          pointerY,
-          delta: event.deltaY,
-        };
-      }
-      if (rafId === null) {
-        rafId = requestAnimationFrame(applyZoom);
-      }
+      });
     };
 
-    canvas.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("wheel", handleWheel, { passive: false, capture: true });
     return () => {
-      canvas.removeEventListener("wheel", onWheel);
-      if (rafId !== null) {
-        cancelAnimationFrame(rafId);
-      }
+      window.removeEventListener("wheel", handleWheel, true);
     };
   }, []);
 
@@ -272,31 +340,28 @@ function WorkflowGraph({ onAddNode, refreshKey }) {
     setViewport({ x: 0, y: 0, scale: 1 });
   };
 
-  const handleDragStart = (nodeId) => {
+  const handleResetLayout = () => {
+    setNodes((prev) => layoutGraphNodes(prev, connections));
+    setViewport({ x: 0, y: 0, scale: 1 });
+  };
+
+  const handleNodePointerDown = (nodeId, event) => {
+    if (event.button !== 0) return;
     const current = nodes.find((node) => node.id === nodeId);
     if (!current) return;
-    dragOriginRef.current[nodeId] = { ...current.position };
-  };
 
-  const handleDrag = (nodeId, info) => {
-    const origin = dragOriginRef.current[nodeId];
-    if (!origin) return;
-    const next = {
-      x: origin.x + info.offset.x / viewport.scale,
-      y: origin.y + info.offset.y / viewport.scale,
+    event.preventDefault();
+    event.stopPropagation();
+
+    nodeDragRef.current = {
+      active: true,
+      nodeId,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: current.position.x,
+      originY: current.position.y,
     };
-
-    setNodes((prev) =>
-      prev.map((node) =>
-        node.id === nodeId
-          ? { ...node, position: { x: next.x, y: next.y } }
-          : node
-      )
-    );
-  };
-
-  const handleDragEnd = (nodeId) => {
-    delete dragOriginRef.current[nodeId];
   };
 
   const handleNodeSizeChange = (nodeId, size) => {
@@ -339,6 +404,13 @@ function WorkflowGraph({ onAddNode, refreshKey }) {
     [nodes.length, connections.length]
   );
 
+  const highlights = useMemo(
+    () => getHighlightedNodes(searchQuery, nodes, relationsData),
+    [searchQuery, nodes, relationsData]
+  );
+
+  const isSearchActive = searchQuery.length > 0;
+
   const selectedDetail = selectedNode
     ? nodes.find((node) => node.id === selectedNode)
     : null;
@@ -353,14 +425,91 @@ function WorkflowGraph({ onAddNode, refreshKey }) {
           </div>
         </div>
         <div className="workflow-actions">
+          <div className="workflow-search">
+            <input
+              type="text"
+              placeholder="Search concepts..."
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              className="workflow-search-input"
+            />
+            {searchInput ? (
+              <button
+                className="workflow-button ghost"
+                type="button"
+                onClick={() => setSearchInput("")}
+              >
+                Clear
+              </button>
+            ) : null}
+          </div>
+          <button
+            className="workflow-button ghost"
+            type="button"
+            onClick={() => setShowRelations((value) => !value)}
+          >
+            {showRelations ? "Hide Relations" : "Show Relations"}
+          </button>
+          <button className="workflow-button ghost" type="button" onClick={handleResetLayout}>
+            Reset Layout
+          </button>
           <button className="workflow-button ghost" type="button" onClick={handleCenter}>
             Center
           </button>
-          <button className="workflow-button primary" type="button" onClick={onAddNode}>
+          <button
+            className="workflow-button primary"
+            type="button"
+            onClick={() => setShowAddForm((v) => !v)}
+          >
             + Add Node
           </button>
         </div>
       </div>
+
+      {showAddForm ? (
+        <div className="inline-add-node">
+          <input
+            placeholder="Concept title (e.g. Neural Networks)"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            className="inline-add-input"
+          />
+          <input
+            placeholder="Short description (optional)"
+            value={newDescription}
+            onChange={(e) => setNewDescription(e.target.value)}
+            className="inline-add-input"
+          />
+          {createError ? <p className="status error">{createError}</p> : null}
+          <div className="inline-add-actions">
+            <button
+              className="workflow-button primary"
+              disabled={isCreating || !newTitle.trim()}
+              onClick={async () => {
+                try {
+                  setIsCreating(true);
+                  setCreateError("");
+                  await createConcept({ title: newTitle.trim(), description: newDescription.trim() });
+                  setNewTitle("");
+                  setNewDescription("");
+                  setShowAddForm(false);
+                  await fetchGraph();
+                } catch (err) {
+                  console.error("Failed to create concept from graph", err);
+                  setCreateError("Failed to create concept.");
+                } finally {
+                  setIsCreating(false);
+                }
+              }}
+            >
+              {isCreating ? "Adding..." : "Add to Library"}
+            </button>
+            <button className="workflow-button ghost" onClick={() => setShowAddForm(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="workflow-details">
         <div>
@@ -379,68 +528,101 @@ function WorkflowGraph({ onAddNode, refreshKey }) {
         </div>
       </div>
 
-      <div
-        className="workflow-canvas"
-        ref={canvasRef}
-        onMouseDown={handlePanStart}
-        onClick={(event) => {
-          if (event.target === event.currentTarget) {
-            setSelectedNode(null);
-          }
-        }}
-      >
-        {isLoading ? <p className="status">Loading graph...</p> : null}
-        {error ? <p className="status error">{error}</p> : null}
-        {!isLoading && !error && nodes.length === 0 ? (
-          <p className="status empty">No nodes yet. Add a concept to start mapping.</p>
-        ) : null}
-        {!isLoading && !error && nodes.length > 0 ? (
-          <div
-            className="workflow-layer"
-            style={{
-              transform: `translate3d(${viewport.x}px, ${viewport.y}px, 0) scale3d(${viewport.scale}, ${viewport.scale}, 1)`,
-            }}
-          >
-            <svg className="workflow-links" aria-hidden="true" width="100%" height="100%">
-              {connections.map((connection) => {
-                const fromNode = nodes.find((node) => node.id === connection.from);
-                const toNode = nodes.find((node) => node.id === connection.to);
-                if (!fromNode || !toNode) return null;
-                const fromSize = nodeSizes[fromNode.id] || NODE_SIZE;
-                const toSize = nodeSizes[toNode.id] || NODE_SIZE;
+      <div className="workflow-body">
+        <div
+          className="workflow-canvas"
+          ref={canvasRef}
+          onMouseDown={handlePanStart}
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setSelectedNode(null);
+            }
+          }}
+        >
+          {isLoading ? <p className="status">Loading graph...</p> : null}
+          {error ? <p className="status error">{error}</p> : null}
+          {!isLoading && !error && nodes.length === 0 ? (
+            <p className="status empty">No nodes yet. Add a concept to start mapping.</p>
+          ) : null}
+          {!isLoading && !error && nodes.length > 0 ? (
+            <div
+              className="workflow-layer"
+              style={{
+                transform: `translate3d(${viewport.x}px, ${viewport.y}px, 0) scale3d(${viewport.scale}, ${viewport.scale}, 1)`,
+              }}
+            >
+              {showRelations ? (
+                <svg
+                  className="workflow-links"
+                  aria-hidden="true"
+                  width="100%"
+                  height="100%"
+                  style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "visible" }}
+                >
+                  {connections.map((connection) => {
+                    const fromNode = nodes.find((node) => node.id === connection.from);
+                    const toNode = nodes.find((node) => node.id === connection.to);
+                    if (!fromNode || !toNode) return null;
+                    const fromSize = nodeSizes[fromNode.id] || NODE_SIZE;
+                    const toSize = nodeSizes[toNode.id] || NODE_SIZE;
+
+                    const edgeActive = isSearchActive
+                      ? highlights.matched.has(connection.from) || highlights.matched.has(connection.to)
+                      : activeConnections.has(connection.id);
+
+                    const edgeDimmed = isSearchActive
+                      ? highlights.dimmed.has(connection.from) && highlights.dimmed.has(connection.to)
+                      : selectedNode && !activeConnections.has(connection.id);
+
+                    return (
+                      <WorkflowConnection
+                        key={connection.id}
+                        from={fromNode}
+                        to={toNode}
+                        fromSize={fromSize}
+                        toSize={toSize}
+                        isActive={edgeActive}
+                        isDimmed={edgeDimmed}
+                      />
+                    );
+                  })}
+                </svg>
+              ) : null}
+
+              {nodes.map((node) => {
+                const isMatched = isSearchActive && highlights.matched.has(node.id);
+                const isConnected = isSearchActive && highlights.connected.has(node.id);
+                const isDimmed = isSearchActive
+                  ? highlights.dimmed.has(node.id)
+                  : selectedNode
+                  ? !connectedNodes.has(node.id)
+                  : false;
+
                 return (
-                  <WorkflowConnection
-                    key={connection.id}
-                    from={fromNode}
-                    to={toNode}
-                    fromSize={fromSize}
-                    toSize={toSize}
-                    isActive={activeConnections.has(connection.id)}
-                    isDimmed={
-                      selectedNode && !activeConnections.has(connection.id)
-                    }
+                  <WorkflowNode
+                    key={node.id}
+                    node={node}
+                    selected={selectedNode === node.id}
+                    matched={isMatched}
+                    connected={isConnected}
+                    dimmed={isDimmed}
+                    onSelect={() => setSelectedNode(selectedNode === node.id ? null : node.id)}
+                    onPointerDown={(event) => handleNodePointerDown(node.id, event)}
+                    nodeSize={NODE_SIZE}
+                    onSizeChange={handleNodeSizeChange}
                   />
                 );
               })}
-            </svg>
+            </div>
+          ) : null}
+        </div>
 
-            {nodes.map((node) => (
-              <WorkflowNode
-                key={node.id}
-                node={node}
-                selected={selectedNode === node.id}
-                dimmed={false}
-                onSelect={() => setSelectedNode(selectedNode === node.id ? null : node.id)}
-                onDragStart={() => handleDragStart(node.id)}
-                onDrag={(info) => handleDrag(node.id, info)}
-                onDragEnd={() => handleDragEnd(node.id)}
-                dragConstraints={canvasRef}
-                nodeSize={NODE_SIZE}
-                onSizeChange={handleNodeSizeChange}
-              />
-            ))}
-          </div>
-        ) : null}
+        <ConceptDetailPanel
+          node={selectedDetail}
+          relations={relationsData}
+          concepts={conceptsData}
+          onClose={() => setSelectedNode(null)}
+        />
       </div>
 
       <div className="workflow-footer">
