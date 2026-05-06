@@ -45,8 +45,7 @@ exports.extractFromText = async (req, res) => {
 
     let conceptsCreated = 0;
     let createdRelations = [];
-
-    await session.withTransaction(async () => {
+    const runExtraction = async (activeSession) => {
       // Step 1: Create or find all concepts
       const conceptMap = new Map(); // Maps normalized concept to MongoDB ID
 
@@ -54,7 +53,11 @@ exports.extractFromText = async (req, res) => {
         const normalizedTitle = conceptTitle.trim().toLowerCase();
 
         // Check if concept already exists using normalized lowercase title
-        let concept = await Concept.findOne({ title: normalizedTitle }).session(session);
+        let conceptQuery = Concept.findOne({ title: normalizedTitle });
+        if (activeSession) {
+          conceptQuery = conceptQuery.session(activeSession);
+        }
+        let concept = await conceptQuery;
 
         if (!concept) {
           // Create new concept
@@ -63,7 +66,11 @@ exports.extractFromText = async (req, res) => {
             displayTitle: conceptTitle,
             description: `Extracted from knowledge input: "${conceptTitle}"`,
           });
-          await concept.save({ session });
+          if (activeSession) {
+            await concept.save({ session: activeSession });
+          } else {
+            await concept.save();
+          }
           conceptsCreated += 1;
         }
 
@@ -115,11 +122,15 @@ exports.extractFromText = async (req, res) => {
             type = "part_of";
           }
 
-          const existingRelation = await Relation.findOne({
+          let relationQuery = Relation.findOne({
             source: sourceId,
             target: targetId,
             type,
-          }).session(session);
+          });
+          if (activeSession) {
+            relationQuery = relationQuery.session(activeSession);
+          }
+          const existingRelation = await relationQuery;
 
           if (!existingRelation) {
             const relation = new Relation({
@@ -127,13 +138,29 @@ exports.extractFromText = async (req, res) => {
               target: targetId,
               type,
             });
-            await relation.save({ session });
+            if (activeSession) {
+              await relation.save({ session: activeSession });
+            } else {
+              await relation.save();
+            }
             createdRelations.push(relation);
             sentenceRelationCount += 1;
           }
         }
       }
-    });
+    };
+
+    try {
+      await session.withTransaction(async () => {
+        await runExtraction(session);
+      });
+    } catch (transactionError) {
+      if (transactionError?.code === 20 || /Transaction numbers are only allowed/.test(transactionError?.message || "")) {
+        await runExtraction(null);
+      } else {
+        throw transactionError;
+      }
+    }
 
     // Success response
     res.status(201).json({

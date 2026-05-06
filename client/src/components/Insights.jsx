@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo } from "react";
 import { getConcepts, getRelations } from "../services/api";
+import RecommendationsPanel from "./RecommendationsPanel";
 
-function Insights({ refreshKey }) {
+function Insights({ refreshKey, onAdded }) {
   const [concepts, setConcepts] = useState([]);
   const [relations, setRelations] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -128,6 +129,8 @@ function Insights({ refreshKey }) {
               </ul>
             )}
           </section>
+
+          <RecommendationsPanel refreshKey={refreshKey} onAdded={onAdded} />
         </>
       )}
     </div>

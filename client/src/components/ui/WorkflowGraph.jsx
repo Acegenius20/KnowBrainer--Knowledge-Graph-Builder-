@@ -410,6 +410,8 @@ function WorkflowGraph({ onAddNode, refreshKey }) {
   );
 
   const isSearchActive = searchQuery.length > 0;
+  const searchMatchCount = highlights.matched.size;
+  const searchHasNoResults = isSearchActive && searchMatchCount === 0;
 
   const selectedDetail = selectedNode
     ? nodes.find((node) => node.id === selectedNode)
@@ -517,6 +519,13 @@ function WorkflowGraph({ onAddNode, refreshKey }) {
           <p className="detail-value">
             {selectedDetail ? selectedDetail.title : "Click a node to inspect details."}
           </p>
+          {isSearchActive ? (
+            <p className="detail-hint">
+              {searchHasNoResults
+                ? "No matches. Try another keyword."
+                : `Showing ${searchMatchCount} match${searchMatchCount === 1 ? "" : "es"}.`}
+            </p>
+          ) : null}
         </div>
         <div>
           <p className="detail-label">Description</p>
@@ -543,6 +552,11 @@ function WorkflowGraph({ onAddNode, refreshKey }) {
           {error ? <p className="status error">{error}</p> : null}
           {!isLoading && !error && nodes.length === 0 ? (
             <p className="status empty">No nodes yet. Add a concept to start mapping.</p>
+          ) : null}
+          {!isLoading && !error && nodes.length > 0 && searchHasNoResults ? (
+            <p className="status empty">
+              No results for "{searchQuery}". Try another keyword.
+            </p>
           ) : null}
           {!isLoading && !error && nodes.length > 0 ? (
             <div

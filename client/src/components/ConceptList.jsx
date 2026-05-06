@@ -85,7 +85,11 @@ function ConceptList({ refreshKey, onDeleted }) {
   }
 
   if (!concepts.length) {
-    return <p className="status empty">No concepts yet.</p>;
+    return (
+      <p className="status empty">
+        No concepts yet. Capture your first thought to start building your graph.
+      </p>
+    );
   }
 
   return (

@@ -256,7 +256,7 @@ function App() {
           ) : activeView === "relations" ? (
             <Relations refreshKey={refreshKey} />
           ) : activeView === "insights" ? (
-            <Insights refreshKey={refreshKey} />
+            <Insights refreshKey={refreshKey} onAdded={handleCreated} />
           ) : activeView === "settings" ? (
             <Settings
               theme={theme}

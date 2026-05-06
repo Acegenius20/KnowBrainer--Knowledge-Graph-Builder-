@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getRelations, getConcepts, deleteRelation } from "../services/api";
+import { getRelations, getConcepts, deleteRelation, createRelation } from "../services/api";
 
 function Relations({ refreshKey }) {
   const [relations, setRelations] = useState([]);
@@ -8,6 +8,11 @@ function Relations({ refreshKey }) {
   const [filterConcept, setFilterConcept] = useState("");
   const [filterType, setFilterType] = useState("");
   const [error, setError] = useState("");
+  const [sourceId, setSourceId] = useState("");
+  const [targetId, setTargetId] = useState("");
+  const [relationType, setRelationType] = useState("related_to");
+  const [isCreating, setIsCreating] = useState(false);
+  const [createMessage, setCreateMessage] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -40,6 +45,46 @@ function Relations({ refreshKey }) {
     } catch (err) {
       console.error("Failed to delete relation", err);
       setError("Failed to delete relation.");
+    }
+  };
+
+  const handleCreateRelation = async (event) => {
+    event.preventDefault();
+    setCreateMessage("");
+
+    if (!sourceId || !targetId) {
+      setError("Choose both a source and target concept.");
+      return;
+    }
+
+    if (sourceId === targetId) {
+      setError("Source and target must be different.");
+      return;
+    }
+
+    if (!relationType.trim()) {
+      setError("Choose a relationship type.");
+      return;
+    }
+
+    try {
+      setIsCreating(true);
+      setError("");
+      const created = await createRelation({
+        source: sourceId,
+        target: targetId,
+        type: relationType.trim(),
+      });
+      setRelations((prev) => [created, ...prev]);
+      setCreateMessage("Relation created.");
+      setSourceId("");
+      setTargetId("");
+      setRelationType("related_to");
+    } catch (err) {
+      const message = err?.response?.data?.message || "Failed to create relation.";
+      setError(message);
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -88,11 +133,76 @@ function Relations({ refreshKey }) {
         </div>
 
         {error && <p className="status error">{error}</p>}
+        {createMessage ? <p className="status success">{createMessage}</p> : null}
 
         {isLoading ? (
           <p className="status">Loading relations...</p>
         ) : (
           <>
+            <form className="relations-create" onSubmit={handleCreateRelation}>
+              <div className="relations-create-grid">
+                <label className="filter-label">
+                  <span>From</span>
+                  <select
+                    value={sourceId}
+                    onChange={(e) => setSourceId(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="">Choose a concept</option>
+                    {concepts.map((c) => (
+                      <option key={c._id} value={c._id}>
+                        {c.displayTitle || c.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="filter-label">
+                  <span>Relationship</span>
+                  <select
+                    value={relationType}
+                    onChange={(e) => setRelationType(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="related_to">Relates to</option>
+                    <option value="used_in">Used in</option>
+                    <option value="part_of">Part of</option>
+                    <option value="enables">Enables</option>
+                    <option value="requires">Requires</option>
+                    <option value="improves">Improves</option>
+                  </select>
+                </label>
+
+                <label className="filter-label">
+                  <span>To</span>
+                  <select
+                    value={targetId}
+                    onChange={(e) => setTargetId(e.target.value)}
+                    className="filter-select"
+                  >
+                    <option value="">Choose a concept</option>
+                    {concepts.map((c) => (
+                      <option key={c._id} value={c._id}>
+                        {c.displayTitle || c.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="relations-create-actions">
+                <button
+                  className="workflow-button primary"
+                  type="submit"
+                  disabled={isCreating}
+                >
+                  {isCreating ? "Creating..." : "Create Connection"}
+                </button>
+                <p className="relations-hint">
+                  Link two concepts to build your graph. NLP links stay available too.
+                </p>
+              </div>
+            </form>
+
             <div className="relations-filters">
               <label className="filter-label">
                 <span>Filter by Concept</span>
@@ -144,8 +254,8 @@ function Relations({ refreshKey }) {
               {filteredRelations.length === 0 ? (
                 <p className="status empty">
                   {relations.length === 0
-                    ? "No relations yet. Extract concepts to create relationships."
-                    : "No relations match your filters."}
+                    ? "No relations yet. Extract text or add concepts to create links."
+                    : "No relations match your filters. Try a different concept or type."}
                 </p>
               ) : (
                 <table className="relations-table">
